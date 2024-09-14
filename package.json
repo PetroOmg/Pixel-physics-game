@@ -1,0 +1,17 @@
+{
+    "name": "your-game",
+    "version": "1.0.0",
+    "description": "2D WebGL Pixel Simulation Game",
+    "main": "src/main.js",
+    "scripts": {
+      "start": "parcel index.html",
+      "build": "parcel build index.html"
+    },
+    "keywords": [],
+    "author": "Petro Kuosmanen",
+    "license": "MIT",
+    "devDependencies": {
+      "parcel": "^2.8.3"
+    }
+  }
+  
