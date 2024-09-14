@@ -1,27 +1,30 @@
 // src/input/input.js
 
-import { clamp } from '../utils/utils.js';
-
 /**
- * Sets up keyboard input handlers to track pressed keys.
- * @param {Object} keys - An object to store the state of keys.
+ * Sets up keyboard input handlers to track pressed keys and dispatch custom events.
+ * @returns {EventTarget} - An EventTarget instance for dispatching and listening to custom events.
  */
-export function setupInputHandlers(keys) {
+export function setupInputHandlers() {
+    // Create an EventTarget for custom event dispatching
+    const inputEventTarget = new EventTarget();
+
+    // Listen for keydown events
     window.addEventListener('keydown', (e) => {
-        keys[e.key.toLowerCase()] = true;
+        if (e.key.toLowerCase() === 't' && !e.repeat) {
+            // Dispatch a custom 't-press' event when 'T' is pressed down
+            const event = new Event('t-press');
+            inputEventTarget.dispatchEvent(event);
+        }
     });
 
+    // Listen for keyup events
     window.addEventListener('keyup', (e) => {
-        keys[e.key.toLowerCase()] = false;
+        if (e.key.toLowerCase() === 't') {
+            // Dispatch a custom 't-release' event when 'T' is released
+            const event = new Event('t-release');
+            inputEventTarget.dispatchEvent(event);
+        }
     });
-}
 
-/**
- * Processes player input and updates the player ship accordingly.
- * @param {Object} keys - The current state of keys.
- * @param {PlayerShip} playerShip - The player ship instance.
- * @param {number} deltaTime - Time elapsed since the last update (in seconds).
- */
-export function handlePlayerInput(keys, playerShip, deltaTime) {
-    playerShip.update(keys, deltaTime);
+    return inputEventTarget;
 }
