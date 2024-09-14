@@ -2,11 +2,10 @@
 
 import { initializeSimulation, performSimulationStep, computeAverageTemperature } from './simulation/simulation.js';
 import { initializeUpdateProgram, initializeRenderProgram, renderScene } from './rendering/rendering.js';
-import { createUIElements, updateUI } from './ui/ui.js';
+import { createUIElements, updateUI, Popup } from './ui/ui.js';
 import { setupInputHandlers } from './input/input.js';
 import { PlayerShip } from './ship/ship.js';
 import { clamp, createTexture } from './utils/utils.js';
-import { Popup } from './ui/ui.js'; // Import Popup class
 
 // ----- WebGL Initialization -----
 const canvas = document.getElementById('glCanvas');
@@ -101,9 +100,9 @@ const popup = new Popup();
 // ----- Initialize Simulation -----
 
 // Create textures for current and next states
-const currentStateData = new Float32Array(WIDTH * HEIGHT * 4); // RGBA
-const currentState = createTexture(gl, WIDTH, HEIGHT, currentStateData);
-const nextState = createTexture(gl, WIDTH, HEIGHT, new Float32Array(WIDTH * HEIGHT * 4));
+let currentStateData = new Float32Array(WIDTH * HEIGHT * 4); // RGBA
+let currentState = createTexture(gl, WIDTH, HEIGHT, currentStateData);
+let nextState = createTexture(gl, WIDTH, HEIGHT, new Float32Array(WIDTH * HEIGHT * 4));
 
 // Initialize simulation with a seed
 initializeSimulation(gl, currentState, WIDTH, HEIGHT, 12345);
@@ -238,39 +237,4 @@ function simulate(currentTime) {
 
     // ----- Average Temperature Calculation -----
     if (currentTime - lastAvgTime >= 1000) { // Every 1 second
-        averageTemperature = computeAverageTemperature(gl, readFramebuffer, WIDTH, HEIGHT);
-        lastAvgTime += 1000;
-    }
-
-    // ----- Fixed Timestep Simulation -----
-    while (currentTime - lastTickTime >= TICK_INTERVAL) {
-        performSimulationStep(gl, updateProgram, framebuffer, currentState, nextState, 0.1);
-        lastTickTime += TICK_INTERVAL;
-        ticsCount++;
-        ticksIntoYear++;
-
-        // Check if a year has passed
-        if (ticksIntoYear >= SEASON_TOTAL_DURATION) {
-            ticksIntoYear -= SEASON_TOTAL_DURATION;
-            currentYear++;
-            console.log(`Year ${currentYear} completed.`);
-        }
-
-        // Update Loading Bar and other UI elements if necessary
-    }
-
-    // ----- Render Pass -----
-    renderScene(gl, renderProgram, currentState);
-
-    // ----- Render Ship -----
-    playerShip.render();
-
-    // ----- Update UI -----
-    updateUI(fps, tps, currentYear, averageTemperature);
-
-    // Continue the loop
-    requestAnimationFrame(simulate);
-}
-
-// Start the simulation loop
-requestAnimationFrame(simulate);
+        averageTemperature = computeAvera

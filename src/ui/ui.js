@@ -1,6 +1,46 @@
 // src/ui/ui.js
 
 /**
+ * Represents a popup that displays information.
+ */
+export class Popup {
+    constructor() {
+        // Create the popup element
+        this.popup = document.createElement('div');
+        this.popup.style.position = 'absolute';
+        this.popup.style.pointerEvents = 'none'; // Allow interactions to pass through
+        this.popup.style.background = 'rgba(0, 0, 0, 0.8)';
+        this.popup.style.color = 'white';
+        this.popup.style.padding = '10px';
+        this.popup.style.borderRadius = '5px';
+        this.popup.style.fontFamily = 'Arial, sans-serif';
+        this.popup.style.fontSize = '12px';
+        this.popup.style.zIndex = '1001';
+        this.popup.style.display = 'none'; // Hidden by default
+        document.body.appendChild(this.popup);
+    }
+
+    /**
+     * Displays the popup with specified content at the given screen position.
+     * @param {string} content - HTML content to display inside the popup.
+     * @param {Object} position - Screen coordinates {x, y} where the popup should appear.
+     */
+    show(content, position) {
+        this.popup.innerHTML = content;
+        this.popup.style.left = `${position.x + 15}px`; // Offset to avoid cursor overlap
+        this.popup.style.top = `${position.y + 15}px`;
+        this.popup.style.display = 'block';
+    }
+
+    /**
+     * Hides the popup.
+     */
+    hide() {
+        this.popup.style.display = 'none';
+    }
+}
+
+/**
  * Creates and appends UI elements to the document body.
  */
 export function createUIElements() {
@@ -87,42 +127,3 @@ export function updateUI(fps, tps, year, averageTemperature) {
     if (yearDisplay) yearDisplay.textContent = `Year: ${year}`;
     if (averageTempDisplay) averageTempDisplay.textContent = `Avg Temp: ${averageTemperature.toFixed(2)}`;
 }
-
-/**
- * Represents a popup that displays information.
- */
-export class Popup {
-    constructor() {
-        // Create the popup element
-        this.popup = document.createElement('div');
-        this.popup.style.position = 'absolute';
-        this.popup.style.pointerEvents = 'none'; // Allow interactions to pass through
-        this.popup.style.background = 'rgba(0, 0, 0, 0.8)';
-        this.popup.style.color = 'white';
-        this.popup.style.padding = '10px';
-        this.popup.style.borderRadius = '5px';
-        this.popup.style.fontFamily = 'Arial, sans-serif';
-        this.popup.style.fontSize = '12px';
-        this.popup.style.zIndex = '1001';
-        this.popup.style.display = 'none'; // Hidden by default
-        document.body.appendChild(this.popup);
-    }
-
-    /**
-     * Displays the popup with specified content at the given screen position.
-     * @param {string} content - HTML content to display inside the popup.
-     * @param {Object} position - Screen coordinates {x, y} where the popup should appear.
-     */
-    show(content, position) {
-        this.popup.innerHTML = content;
-        this.popup.style.left = `${position.x + 15}px`; // Offset to avoid cursor overlap
-        this.popup.style.top = `${position.y + 15}px`;
-        this.popup.style.display = 'block';
-    }
-
-    /**
-     * Hides the popup.
-     */
-    hide() {
-        this.popup.style.display = 'none';
-  
