@@ -237,4 +237,40 @@ function simulate(currentTime) {
 
     // ----- Average Temperature Calculation -----
     if (currentTime - lastAvgTime >= 1000) { // Every 1 second
-        averageTemperature = computeAvera
+        averageTemperature = computeAverageTemperature(gl, readFramebuffer, WIDTH, HEIGHT);
+        lastAvgTime += 1000;
+    }
+
+    // ----- Fixed Timestep Simulation -----
+    while (currentTime - lastTickTime >= TICK_INTERVAL) {
+        performSimulationStep(gl, updateProgram, framebuffer, currentState, nextState, 0.1);
+        lastTickTime += TICK_INTERVAL;
+        ticsCount++;
+        ticksIntoYear++;
+
+        // Check if a year has passed
+        if (ticksIntoYear >= SEASON_TOTAL_DURATION) {
+            ticksIntoYear -= SEASON_TOTAL_DURATION;
+            currentYear++;
+            console.log(`Year ${currentYear} completed.`);
+        }
+
+        // Swap current and next state textures
+        [currentState, nextState] = [nextState, currentState];
+    }
+
+    // ----- Render Pass -----
+    renderScene(gl, renderProgram, currentState);
+
+    // ----- Render Ship -----
+    playerShip.render();
+
+    // ----- Update UI -----
+    updateUI(fps, tps, currentYear, averageTemperature);
+
+    // Continue the loop
+    requestAnimationFrame(simulate);
+}
+
+// Start the simulation loop
+requestAnimationFrame(simulate);
