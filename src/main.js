@@ -1,6 +1,6 @@
 // src/main.js
 
-import { initializeSimulation, performSimulationStep, computeAverageTemperature } from './simulation/simulation.js';
+import { initializeSimulation, performSimulationStep } from './simulation/simulation.js';
 import { initializeUpdateProgram, initializeRenderProgram, renderScene } from './rendering/rendering.js';
 import { createUIElements, updateUI, Popup } from './ui/ui.js';
 import { setupInputHandlers } from './input/input.js';

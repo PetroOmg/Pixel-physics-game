@@ -25,7 +25,7 @@ export class PlayerShip {
 
     /**
      * Updates the ship's state based on user input and physics.
-     * @param {Object} keys - The current state of keys.
+     * @param {Array<string>} keys - The current array of pressed keys.
      * @param {number} deltaTime - Time elapsed since the last update (in seconds).
      */
     update(keys, deltaTime) {

@@ -59,30 +59,6 @@ export function performSimulationStep(gl, updateProgram, framebuffer, currentSta
 }
 
 /**
- * Computes the average temperature of the entire simulation grid.
- * @param {WebGL2RenderingContext} gl - The WebGL context.
- * @param {WebGLFramebuffer} readFramebuffer - The framebuffer to read from.
- * @param {number} width - Simulation grid width.
- * @param {number} height - Simulation grid height.
- * @returns {number} - The average temperature.
- */
-export function computeAverageTemperature(gl, readFramebuffer, width, height) {
-    gl.bindFramebuffer(gl.FRAMEBUFFER, readFramebuffer);
-
-    const pixelData = new Float32Array(width * height * 4);
-    gl.readPixels(0, 0, width, height, gl.RGBA, gl.FLOAT, pixelData);
-
-    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-
-    let sumTemperature = 0;
-    for (let i = 1; i < pixelData.length; i += 4) { // Iterate over G channel
-        sumTemperature += clamp(pixelData[i], 0.0, 1.0); // Temperature is G channel
-    }
-
-    return sumTemperature / (width * height);
-}
-
-/**
  * Mulberry32 PRNG.
  * @param {number} a - Seed value.
  * @returns {Function} - A function that returns a pseudo-random number between 0 and 1.
