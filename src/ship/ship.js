@@ -1,26 +1,21 @@
 // src/ship/ship.js
 
-import { clamp } from '../utils/utils.js';
-
-/**
- * Represents the player's ship in the simulation.
- */
 export class PlayerShip {
     /**
      * Creates a new PlayerShip instance.
      * @param {number} width - Simulation grid width.
      * @param {number} height - Simulation grid height.
      * @param {WebGL2RenderingContext} gl - The WebGL context.
-     * @param {WebGLFramebuffer} readFramebuffer - The framebuffer for reading and writing textures.
+     * @param {WebGLFramebuffer} writeFramebuffer - The framebuffer for writing to textures.
      */
-    constructor(width, height, gl, readFramebuffer) {
+    constructor(width, height, gl, writeFramebuffer) {
         this.position = { x: width / 2, y: height / 2 };
         this.angle = 0; // In radians
         this.velocity = { x: 0, y: 0 };
         this.width = width;
         this.height = height;
         this.gl = gl;
-        this.readFramebuffer = readFramebuffer;
+        this.writeFramebuffer = writeFramebuffer;
     }
 
     /**
@@ -62,7 +57,7 @@ export class PlayerShip {
     }
 
     /**
-     * Renders the ship onto the simulation state texture by setting specific pixel attributes.
+     * Renders the ship onto the nextState texture by setting specific pixel attributes.
      */
     render() {
         const gl = this.gl;
@@ -77,13 +72,13 @@ export class PlayerShip {
             // Invert Y-coordinate for WebGL
             const invertedY = this.height - shipY - 1;
 
-            // Bind readFramebuffer to modify currentState texture
-            gl.bindFramebuffer(gl.FRAMEBUFFER, this.readFramebuffer);
+            // Bind writeFramebuffer to modify nextState texture
+            gl.bindFramebuffer(gl.FRAMEBUFFER, this.writeFramebuffer);
 
             // Retrieve the texture attached to the framebuffer
             const currentTexture = gl.getFramebufferAttachmentParameter(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.FRAMEBUFFER_ATTACHMENT_OBJECT_NAME);
             if (!currentTexture) {
-                console.error('No texture is bound to COLOR_ATTACHMENT0 of the readFramebuffer.');
+                console.error('No texture is bound to COLOR_ATTACHMENT0 of the writeFramebuffer.');
                 gl.bindFramebuffer(gl.FRAMEBUFFER, null);
                 return;
             }
@@ -93,6 +88,12 @@ export class PlayerShip {
 
             // Update the specific pixel in the texture
             gl.texSubImage2D(gl.TEXTURE_2D, 0, shipX, invertedY, 1, 1, gl.RGBA, gl.FLOAT, shipAttributes);
+
+            // Check for errors
+            const error = gl.getError();
+            if (error !== gl.NO_ERROR) {
+                console.error(`WebGL Error after texSubImage2D: ${error}`);
+            }
 
             // Unbind the texture and framebuffer to clean up
             gl.bindTexture(gl.TEXTURE_2D, null);

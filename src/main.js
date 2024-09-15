@@ -150,22 +150,23 @@ try {
 
 // ----- Initialize Framebuffers -----
 
-const framebuffer = gl.createFramebuffer();
-
-// Initialize readFramebuffer to read from currentState
 const readFramebuffer = gl.createFramebuffer();
 gl.bindFramebuffer(gl.FRAMEBUFFER, readFramebuffer);
 gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, currentState, 0);
 
+const writeFramebuffer = gl.createFramebuffer();
+gl.bindFramebuffer(gl.FRAMEBUFFER, writeFramebuffer);
+gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, nextState, 0);
+
 // Check framebuffer status
 if (gl.checkFramebufferStatus(gl.FRAMEBUFFER) !== gl.FRAMEBUFFER_COMPLETE) {
-    error('readFramebuffer is not complete.');
+    error('One of the framebuffers is not complete.');
 }
 gl.bindFramebuffer(gl.FRAMEBUFFER, null);
 
 // ----- Initialize Player Ship -----
 
-const playerShip = new PlayerShip(WIDTH, HEIGHT, gl, readFramebuffer);
+const playerShip = new PlayerShip(WIDTH, HEIGHT, gl, writeFramebuffer);
 
 // ----- Initialize Web Worker -----
 
@@ -177,6 +178,7 @@ simulationWorker.onmessage = function(e) {
         averageTemperature = avgTemp;
         lastAvgTime = performance.now();
     }
+    // Handle other message types as needed
 };
 
 // ----- Simulation Settings -----
@@ -323,7 +325,9 @@ function simulate(currentTime) {
 
         // ----- Fixed Timestep Simulation -----
         while (currentTime - lastTickTime >= TICK_INTERVAL) {
-            performSimulationStep(gl, updateProgram, framebuffer, currentState, nextState, gravity);
+            performSimulationStep(gl, updateProgram, writeFramebuffer, currentState, nextState, gravity);
+            playerShip.update(pressedKeys, TICK_INTERVAL / 1000); // Update ship with deltaTime in seconds
+            playerShip.render();
             lastTickTime += TICK_INTERVAL;
             ticsCount++;
             ticksIntoYear++;
@@ -334,23 +338,18 @@ function simulate(currentTime) {
                 currentYear++;
                 info(`Year ${currentYear} completed.`);
             }
-
-            // Swap current and next state textures
-            [currentState, nextState] = [nextState, currentState];
-
-            // Update the readFramebuffer to reference the new currentState
-            gl.bindFramebuffer(gl.FRAMEBUFFER, readFramebuffer);
-            gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, currentState, 0);
-
-            // Unbind framebuffer
-            gl.bindFramebuffer(gl.FRAMEBUFFER, null);
         }
+
+        // ----- Swap Current and Next State Textures -----
+        [currentState, nextState] = [nextState, currentState];
+
+        // Update the readFramebuffer to reference the new currentState
+        gl.bindFramebuffer(gl.FRAMEBUFFER, readFramebuffer);
+        gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, currentState, 0);
+        gl.bindFramebuffer(gl.FRAMEBUFFER, null);
 
         // ----- Render Pass -----
         renderScene(gl, renderProgram, currentState);
-
-        // ----- Render Ship -----
-        playerShip.render();
 
         // ----- Update UI -----
         updateUI(fps, tps, currentYear, averageTemperature);
