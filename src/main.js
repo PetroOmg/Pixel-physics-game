@@ -239,21 +239,10 @@ async function triggerSuperDebugger() {
     // Serialize to JSON
     const jsonData = JSON.stringify(debugData, null, 2); // Pretty-print with 2-space indentation
 
-    // Copy to clipboard
-    await copyToClipboard(jsonData);
-
-    // Provide user feedback
-    notifyUser('Super Debugger: Pixel data and errors have been copied to the clipboard.');
-}
-
-/**
- * Copies the given text to the clipboard.
- * @param {string} text - The text to copy.
- * @returns {Promise<void>}
- */
-async function copyToClipboard(text) {
+    // Copy to clipboard using the imported function
     try {
-        await copyToClipboard(text); // Imported from clipboard.js
+        await copyToClipboard(jsonData);
+        notifyUser('Super Debugger: Pixel data and errors have been copied to the clipboard.');
     } catch (err) {
         error(`Failed to copy to clipboard: ${err.message}`);
         notifyUser('Super Debugger: Failed to copy data to clipboard.');
