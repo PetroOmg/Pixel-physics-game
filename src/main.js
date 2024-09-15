@@ -120,19 +120,6 @@ inputEventTarget.addEventListener('d-release', () => {
     pressedKeys = pressedKeys.filter(key => key !== 'd');
 });
 
-// ----- Keyboard Shortcut for Super Debugger -----
-
-document.addEventListener('keydown', async (e) => {
-    if (e.key === 'y' || e.key === 'Y') {
-        e.preventDefault(); // Prevent any default behavior
-        try {
-            await capturePixelData();
-        } catch (err) {
-            error(`Debugger error: ${err.message}`);
-        }
-    }
-});
-
 // ----- Initialize UI Elements -----
 
 createUIElements();
@@ -167,6 +154,7 @@ const readFramebuffer = gl.createFramebuffer();
 gl.bindFramebuffer(gl.FRAMEBUFFER, readFramebuffer);
 gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, currentState, 0);
 
+// Create Write Framebuffer and attach nextState
 const writeFramebuffer = gl.createFramebuffer();
 gl.bindFramebuffer(gl.FRAMEBUFFER, writeFramebuffer);
 gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, nextState, 0);
@@ -212,105 +200,283 @@ gravitySlider.addEventListener('input', (e) => {
     gravityValueDisplay.textContent = gravity.toFixed(2);
 });
 
-// ----- Helper Function to Get Pixel Data Under Cursor -----
+// ----- Error Logging Mechanism -----
+const capturedErrors = [];
+
+// Override console.error to capture error messages
+const originalConsoleError = console.error;
+console.error = function(...args) {
+    const message = args.join(' ');
+    capturedErrors.push(message);
+    originalConsoleError.apply(console, args);
+};
+
+// Capture errors from Web Workers
+simulationWorker.onerror = function(event) {
+    const errorMessage = `Worker Error: ${event.message} at ${event.filename}:${event.lineno}:${event.colno}`;
+    capturedErrors.push(errorMessage);
+    error(errorMessage); // Also log using your logger
+};
+
+// ----- Keyboard Shortcut for Super Debugger -----
+let isCapturing = false; // Flag to prevent multiple captures
+
+document.addEventListener('keydown', async (e) => {
+    if ((e.key === 'y' || e.key === 'Y') && !isCapturing) {
+        e.preventDefault(); // Prevent any default behavior
+        isCapturing = true;
+        try {
+            await triggerSuperDebugger();
+        } catch (err) {
+            error(`Debugger error: ${err.message}`);
+        }
+        // Reset the flag after a short delay to allow subsequent captures
+        setTimeout(() => { isCapturing = false; }, 1000);
+    }
+});
 
 /**
- * Retrieves the pixel data at the given simulation coordinates.
- * @param {number} x - The x-coordinate in the simulation grid.
- * @param {number} y - The y-coordinate in the simulation grid.
- * @returns {Promise<Float32Array>} - The pixel data [R, G, B, A].
+ * Triggers the super debugger to capture pixel data and error messages.
  */
-function getPixelData(x, y) {
-    return new Promise((resolve, reject) => {
-        // Bind readFramebuffer
-        gl.bindFramebuffer(gl.FRAMEBUFFER, readFramebuffer);
+async function triggerSuperDebugger() {
+    // Capture pixel data
+    const pixels = await capturePixelData();
 
-        // Read the pixel at (x, y)
-        const pixelData = new Float32Array(4);
-        gl.readPixels(x, y, 1, 1, gl.RGBA, gl.FLOAT, pixelData);
+    // Retrieve and clear captured errors
+    const errors = [...capturedErrors];
+    capturedErrors.length = 0; // Clear the array after capturing
 
-        // Unbind framebuffer
-        gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    // Combine data into a single object
+    const debugData = {
+        timestamp: new Date().toISOString(),
+        pixelData: pixels,
+        errorMessages: errors
+    };
 
-        resolve(pixelData);
-    });
+    // Serialize to JSON
+    const jsonData = JSON.stringify(debugData, null, 2); // Pretty-print with 2-space indentation
+
+    // Copy to clipboard
+    await copyToClipboard(jsonData);
+
+    // Provide user feedback
+    notifyUser('Super Debugger: Pixel data and errors have been copied to the clipboard.');
 }
 
 /**
- * Determines the material name based on attribute values.
- * @param {number} density - Density attribute [0,1].
- * @param {number} temperature - Temperature attribute [0,1].
- * @param {number} magic - Magic attribute [0,1].
- * @param {number} organic - Organic attribute [0,1].
- * @returns {string} - The name of the material.
+ * Copies the given text to the clipboard.
+ * @param {string} text - The text to copy.
+ * @returns {Promise<void>}
  */
-function getMaterialName(density, temperature, magic, organic) {
-    // Define your own logic for mapping attributes to material names
-    if (organic > 0.5) return 'Organic';
-    if (magic > 0.3) return 'Magic';
-    if (density > 0.7) return 'Metal';
-    if (temperature > 0.5) return 'Hot';
-    return 'Unknown';
+async function copyToClipboard(text) {
+    if (!navigator.clipboard) {
+        // Fallback for browsers that do not support Clipboard API
+        fallbackCopyTextToClipboard(text);
+        return;
+    }
+    try {
+        await navigator.clipboard.writeText(text);
+    } catch (err) {
+        error(`Failed to copy to clipboard: ${err.message}`);
+        notifyUser('Super Debugger: Failed to copy data to clipboard.');
+    }
 }
 
-// ----- Handle 't' Key Events -----
+/**
+ * Fallback method for copying text to clipboard using a temporary textarea.
+ * @param {string} text - The text to copy.
+ */
+function fallbackCopyTextToClipboard(text) {
+    const textarea = document.createElement('textarea');
+    textarea.value = text;
 
-inputEventTarget.addEventListener('t-press', async () => {
-    // Get simulation grid position
-    const x = Math.floor(mousePosition.x);
-    const y = Math.floor(mousePosition.y);
+    // Avoid scrolling to bottom
+    textarea.style.top = '0';
+    textarea.style.left = '0';
+    textarea.style.position = 'fixed';
 
-    // Invert Y for WebGL
-    const invertedY = HEIGHT - y - 1;
+    document.body.appendChild(textarea);
+    textarea.focus();
+    textarea.select();
 
     try {
-        // Get pixel data
-        const pixelData = await getPixelData(x, invertedY);
-
-        // Extract attributes, clamped
-        const density = clamp(pixelData[ATTRIBUTES.DENSITY], 0.0, 1.0);
-        const temperature = clamp(pixelData[ATTRIBUTES.TEMPERATURE], 0.0, 1.0);
-        const magic = clamp(pixelData[ATTRIBUTES.MAGIC], 0.0, 1.0);
-        const organic = clamp(pixelData[ATTRIBUTES.ORGANIC], 0.0, 1.0);
-
-        // Determine material name
-        const materialName = getMaterialName(density, temperature, magic, organic);
-
-        // Create popup content
-        const content = `
-            <strong>Pixel (${x}, ${y})</strong><br>
-            <strong>Material:</strong> ${materialName}<br>
-            <strong>Density:</strong> ${density.toFixed(2)}<br>
-            <strong>Temperature:</strong> ${temperature.toFixed(2)}<br>
-            <strong>Magic:</strong> ${magic.toFixed(2)}<br>
-            <strong>Organic:</strong> ${organic.toFixed(2)}
-        `;
-
-        // Position the popup near the mouse cursor
-        const position = { x: mouseClientPosition.x, y: mouseClientPosition.y };
-
-        // Show the popup
-        popup.show(content, position);
-    } catch (err) {
-        error(`Failed to retrieve pixel data: ${err.message}`);
-    }
-});
-
-inputEventTarget.addEventListener('t-release', () => {
-    popup.hide();
-});
-
-// ----- Toggle Dev Panel Visibility -----
-
-document.addEventListener('keydown', (e) => {
-    if (e.key === 'F1') { // Example: Toggle with F1
-        const devPanel = document.getElementById('devPanel');
-        if (devPanel) {
-            devPanel.style.display = devPanel.style.display === 'none' ? 'block' : 'none';
+        const successful = document.execCommand('copy');
+        if (!successful) {
+            throw new Error('Fallback: Copy command was unsuccessful');
         }
-        e.preventDefault(); // Prevent default F1 action
+    } catch (err) {
+        error(`Fallback: Oops, unable to copy: ${err.message}`);
+        notifyUser('Super Debugger: Failed to copy data to clipboard.');
     }
-});
+
+    document.body.removeChild(textarea);
+}
+
+/**
+ * Displays a temporary notification to the user.
+ * @param {string} message - The message to display.
+ */
+function notifyUser(message) {
+    let notification = document.getElementById('debuggerNotification');
+    if (!notification) {
+        notification = document.createElement('div');
+        notification.id = 'debuggerNotification';
+        notification.style.position = 'fixed';
+        notification.style.bottom = '20px';
+        notification.style.right = '20px';
+        notification.style.background = 'rgba(0, 0, 0, 0.8)';
+        notification.style.color = 'white';
+        notification.style.padding = '10px 20px';
+        notification.style.borderRadius = '5px';
+        notification.style.fontFamily = 'Arial, sans-serif';
+        notification.style.fontSize = '14px';
+        notification.style.zIndex = '3000';
+        notification.style.opacity = '0';
+        notification.style.transition = 'opacity 0.5s';
+        document.body.appendChild(notification);
+    }
+
+    notification.textContent = message;
+    notification.style.opacity = '1';
+
+    // Hide after 3 seconds
+    setTimeout(() => {
+        notification.style.opacity = '0';
+    }, 3000);
+}
+
+/**
+ * Captures the entire pixel data from the current simulation state.
+ * @returns {Promise<Array>} - Resolves to an array containing pixel data.
+ */
+async function capturePixelData() {
+    // Bind the readFramebuffer to read from currentState
+    gl.bindFramebuffer(gl.FRAMEBUFFER, readFramebuffer);
+
+    // Create a Float32Array to store pixel data
+    const pixelData = new Float32Array(WIDTH * HEIGHT * 4); // RGBA for each pixel
+
+    // Read pixels from the framebuffer
+    gl.readPixels(0, 0, WIDTH, HEIGHT, gl.RGBA, gl.FLOAT, pixelData);
+
+    // Unbind the framebuffer
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+
+    // Convert Float32Array to a regular array for serialization
+    const pixelArray = Array.from(pixelData);
+
+    return pixelArray;
+}
+
+/**
+ * Copies the given text to the clipboard.
+ * @param {string} text - The text to copy.
+ * @returns {Promise<void>}
+ */
+async function copyToClipboard(text) {
+    if (!navigator.clipboard) {
+        // Fallback for browsers that do not support Clipboard API
+        fallbackCopyTextToClipboard(text);
+        return;
+    }
+    try {
+        await navigator.clipboard.writeText(text);
+    } catch (err) {
+        error(`Failed to copy to clipboard: ${err.message}`);
+        notifyUser('Super Debugger: Failed to copy data to clipboard.');
+    }
+}
+
+/**
+ * Fallback method for copying text to clipboard using a temporary textarea.
+ * @param {string} text - The text to copy.
+ */
+function fallbackCopyTextToClipboard(text) {
+    const textarea = document.createElement('textarea');
+    textarea.value = text;
+
+    // Avoid scrolling to bottom
+    textarea.style.top = '0';
+    textarea.style.left = '0';
+    textarea.style.position = 'fixed';
+
+    document.body.appendChild(textarea);
+    textarea.focus();
+    textarea.select();
+
+    try {
+        const successful = document.execCommand('copy');
+        if (!successful) {
+            throw new Error('Fallback: Copy command was unsuccessful');
+        }
+    } catch (err) {
+        error(`Fallback: Oops, unable to copy: ${err.message}`);
+        notifyUser('Super Debugger: Failed to copy data to clipboard.');
+    }
+
+    document.body.removeChild(textarea);
+}
+
+/**
+ * Displays a temporary notification to the user.
+ * @param {string} message - The message to display.
+ */
+function notifyUser(message) {
+    let notification = document.getElementById('debuggerNotification');
+    if (!notification) {
+        notification = document.createElement('div');
+        notification.id = 'debuggerNotification';
+        notification.style.position = 'fixed';
+        notification.style.bottom = '20px';
+        notification.style.right = '20px';
+        notification.style.background = 'rgba(0, 0, 0, 0.8)';
+        notification.style.color = 'white';
+        notification.style.padding = '10px 20px';
+        notification.style.borderRadius = '5px';
+        notification.style.fontFamily = 'Arial, sans-serif';
+        notification.style.fontSize = '14px';
+        notification.style.zIndex = '3000';
+        notification.style.opacity = '0';
+        notification.style.transition = 'opacity 0.5s';
+        document.body.appendChild(notification);
+    }
+
+    notification.textContent = message;
+    notification.style.opacity = '1';
+
+    // Hide after 3 seconds
+    setTimeout(() => {
+        notification.style.opacity = '0';
+    }, 3000);
+}
+
+/**
+ * Triggers the super debugger to capture pixel data and error messages.
+ */
+async function triggerSuperDebugger() {
+    // Capture pixel data
+    const pixels = await capturePixelData();
+
+    // Retrieve and clear captured errors
+    const errors = [...capturedErrors];
+    capturedErrors.length = 0; // Clear the array after capturing
+
+    // Combine data into a single object
+    const debugData = {
+        timestamp: new Date().toISOString(),
+        pixelData: pixels,
+        errorMessages: errors
+    };
+
+    // Serialize to JSON
+    const jsonData = JSON.stringify(debugData, null, 2); // Pretty-print with 2-space indentation
+
+    // Copy to clipboard
+    await copyToClipboard(jsonData);
+
+    // Provide user feedback
+    notifyUser('Super Debugger: Pixel data and errors have been copied to the clipboard.');
+}
 
 // ----- Simulation Loop -----
 
@@ -393,151 +559,4 @@ function computeAverageTemperature(gl, readFramebuffer, width, height) {
         type: 'computeAverageTemperature',
         payload: { pixelData, width, height }
     });
-}
-
-/**
- * Captures the entire pixel data from the current simulation state.
- */
-async function capturePixelData() {
-    // Bind the readFramebuffer to read from currentState
-    gl.bindFramebuffer(gl.FRAMEBUFFER, readFramebuffer);
-
-    // Create a Float32Array to store pixel data
-    const pixelData = new Float32Array(WIDTH * HEIGHT * 4); // RGBA for each pixel
-
-    // Read pixels from the framebuffer
-    gl.readPixels(0, 0, WIDTH, HEIGHT, gl.RGBA, gl.FLOAT, pixelData);
-
-    // Unbind the framebuffer
-    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-
-    // Convert Float32Array to Uint8ClampedArray for image processing
-    const uint8Data = floatToUint8(pixelData);
-
-    // Create an ImageData object
-    const imageData = new ImageData(new Uint8ClampedArray(uint8Data), WIDTH, HEIGHT);
-
-    // Render the ImageData to an off-screen canvas
-    const offscreenCanvas = document.createElement('canvas');
-    offscreenCanvas.width = WIDTH;
-    offscreenCanvas.height = HEIGHT;
-    const ctx = offscreenCanvas.getContext('2d');
-    ctx.putImageData(imageData, 0, 0);
-
-    // Convert the canvas to a PNG data URL
-    const dataURL = offscreenCanvas.toDataURL('image/png');
-
-    // Create a popup to display the captured image
-    displayCapturedImage(dataURL);
-
-    // Optionally, trigger a download of the image
-    downloadCapturedImage(dataURL, `pixelData_${Date.now()}.png`);
-}
-
-/**
- * Converts a Float32Array [0,1] to Uint8ClampedArray [0,255].
- * @param {Float32Array} floatData - The float pixel data.
- * @returns {Uint8ClampedArray} - The clamped byte pixel data.
- */
-function floatToUint8(floatData) {
-    const uint8Data = new Uint8ClampedArray(floatData.length);
-    for (let i = 0; i < floatData.length; i++) {
-        // Clamp and convert each float value to 0-255
-        uint8Data[i] = clamp(Math.round(floatData[i] * 255), 0, 255);
-    }
-    return uint8Data;
-}
-
-/**
- * Displays the captured pixel data image in a popup.
- * @param {string} dataURL - The data URL of the captured image.
- */
-function displayCapturedImage(dataURL) {
-    // Create or select a popup container
-    let debuggerPopup = document.getElementById('debuggerPopup');
-    if (!debuggerPopup) {
-        debuggerPopup = document.createElement('div');
-        debuggerPopup.id = 'debuggerPopup';
-        debuggerPopup.style.position = 'absolute';
-        debuggerPopup.style.top = '50px';
-        debuggerPopup.style.left = '50px';
-        debuggerPopup.style.width = '500px';
-        debuggerPopup.style.height = '500px';
-        debuggerPopup.style.background = 'rgba(0, 0, 0, 0.9)';
-        debuggerPopup.style.border = '2px solid #fff';
-        debuggerPopup.style.borderRadius = '10px';
-        debuggerPopup.style.padding = '10px';
-        debuggerPopup.style.zIndex = '2000';
-        debuggerPopup.style.overflow = 'auto';
-        debuggerPopup.style.display = 'flex';
-        debuggerPopup.style.justifyContent = 'center';
-        debuggerPopup.style.alignItems = 'center';
-        document.body.appendChild(debuggerPopup);
-
-        // Add a close button
-        const closeButton = document.createElement('button');
-        closeButton.textContent = 'Close';
-        closeButton.style.position = 'absolute';
-        closeButton.style.top = '10px';
-        closeButton.style.right = '10px';
-        closeButton.style.padding = '5px 10px';
-        closeButton.style.background = '#ff5c5c';
-        closeButton.style.border = 'none';
-        closeButton.style.borderRadius = '5px';
-        closeButton.style.cursor = 'pointer';
-        closeButton.addEventListener('click', () => {
-            debuggerPopup.style.display = 'none';
-        });
-        debuggerPopup.appendChild(closeButton);
-    }
-
-    // Create an image element to display the data URL
-    const img = document.createElement('img');
-    img.src = dataURL;
-    img.style.maxWidth = '100%';
-    img.style.maxHeight = '100%';
-    img.alt = 'Captured Pixel Data';
-
-    // Clear any previous content and append the new image
-    debuggerPopup.innerHTML = ''; // Remove existing content
-    debuggerPopup.appendChild(img);
-
-    // Add the close button again
-    const closeButton = document.createElement('button');
-    closeButton.textContent = 'Close';
-    closeButton.style.position = 'absolute';
-    closeButton.style.top = '10px';
-    closeButton.style.right = '10px';
-    closeButton.style.padding = '5px 10px';
-    closeButton.style.background = '#ff5c5c';
-    closeButton.style.border = 'none';
-    closeButton.style.borderRadius = '5px';
-    closeButton.style.cursor = 'pointer';
-    closeButton.addEventListener('click', () => {
-        debuggerPopup.style.display = 'none';
-    });
-    debuggerPopup.appendChild(closeButton);
-
-    // Make the popup visible
-    debuggerPopup.style.display = 'flex';
-}
-
-/**
- * Triggers a download of the captured image.
- * @param {string} dataURL - The data URL of the captured image.
- * @param {string} filename - The desired filename for the downloaded image.
- */
-function downloadCapturedImage(dataURL, filename) {
-    const link = document.createElement('a');
-    link.href = dataURL;
-    link.download = filename;
-
-    // Append the link to the body
-    document.body.appendChild(link);
-
-    // Programmatically click the link to trigger the download
-    link.click();
-
-    // Remove the link from the DOM
-    document.body.removeChild(link);
 }
