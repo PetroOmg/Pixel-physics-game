@@ -8,6 +8,8 @@ import { PlayerShip } from './ship/ship.js';
 import { clamp, createTexture } from './utils/utils.js';
 import { info, error } from './utils/logger.js';
 import { copyToClipboard } from './utils/clipboard.js'; // Import from separate module
+import { rleCompress, rleDecompress } from './utils/compression.js';
+import { encodeBase64, decodeBase64 } from './utils/base64.js';
 
 // ----- WebGL Initialization -----
 const canvas = document.getElementById('glCanvas');
@@ -229,20 +231,40 @@ async function triggerSuperDebugger() {
     const errors = [...capturedErrors];
     capturedErrors.length = 0; // Clear the array after capturing
 
-    // Combine data into a single object
-    const debugData = {
-        timestamp: new Date().toISOString(),
-        pixelData: pixels,
-        errorMessages: errors
+    // Compress pixel data using RLE
+    const compressedPixelData = rleCompress(pixels);
+
+    // Convert compressed data to JSON string
+    const compressedJson = JSON.stringify(compressedPixelData);
+
+    // Encode JSON string to Base64
+    const base64Data = encodeBase64(compressedJson);
+
+    // Prepare the final data with decompression instructions
+    const finalData = {
+        compressedData: base64Data,
+        decompressionInstructions: "To decompress this data, use the following steps:\n\n" +
+            "1. Decode the 'compressedData' from Base64.\n" +
+            "2. Parse the JSON string to retrieve the RLE compressed array.\n" +
+            "3. Apply 'rleDecompress' to get the original Float32Array.\n\n" +
+            "Example Code:\n\n" +
+            "import { rleDecompress } from './utils/compression.js';\n" +
+            "import { decodeBase64 } from './utils/base64.js';\n\n" +
+            "// Assume 'copiedData' is the JSON string from the clipboard\n" +
+            "const parsedData = JSON.parse(copiedData);\n" +
+            "const compressedJson = decodeBase64(parsedData.compressedData);\n" +
+            "const compressedArray = JSON.parse(compressedJson);\n" +
+            "const originalPixels = rleDecompress(compressedArray);\n\n" +
+            "console.log(originalPixels);"
     };
 
     // Serialize to JSON
-    const jsonData = JSON.stringify(debugData, null, 2); // Pretty-print with 2-space indentation
+    const jsonData = JSON.stringify(finalData);
 
     // Copy to clipboard using the imported function
     try {
         await copyToClipboard(jsonData);
-        notifyUser('Super Debugger: Pixel data and errors have been copied to the clipboard.');
+        notifyUser('Super Debugger: Compressed pixel data and errors have been copied to the clipboard.');
     } catch (err) {
         error(`Failed to copy to clipboard: ${err.message}`);
         notifyUser('Super Debugger: Failed to copy data to clipboard.');
@@ -284,7 +306,7 @@ function notifyUser(message) {
 
 /**
  * Captures the entire pixel data from the current simulation state.
- * @returns {Promise<Array>} - Resolves to an array containing pixel data.
+ * @returns {Promise<Float32Array>} - Resolves to a Float32Array containing pixel data.
  */
 async function capturePixelData() {
     // Bind the readFramebuffer to read from currentState
@@ -299,13 +321,14 @@ async function capturePixelData() {
     // Unbind the framebuffer
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
 
-    // Convert Float32Array to a regular array for serialization
-    const pixelArray = Array.from(pixelData);
-
-    return pixelArray;
+    return pixelData;
 }
 
 // ----- Simulation Loop -----
+
+const TICK_INTERVAL = 16; // Approx. 60 FPS
+let lastTickTime = performance.now();
+const gravity = 0.1; // Example gravity value
 
 function simulate(currentTime) {
     try {
