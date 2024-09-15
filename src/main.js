@@ -7,6 +7,7 @@ import { setupInputHandlers } from './input/input.js';
 import { PlayerShip } from './ship/ship.js';
 import { clamp, createTexture } from './utils/utils.js';
 import { info, error } from './utils/logger.js';
+import { copyToClipboard } from './utils/clipboard.js'; // Import from separate module
 
 // ----- WebGL Initialization -----
 const canvas = document.getElementById('glCanvas');
@@ -182,24 +183,6 @@ simulationWorker.onmessage = function(e) {
     // Handle other message types as needed
 };
 
-// ----- Simulation Settings -----
-
-// Fixed timestep settings
-const TICK_RATE = 60; // 60 tics per second
-const TICK_INTERVAL = 1000 / TICK_RATE; // ~16.666 ms per tic
-let lastTickTime = performance.now();
-
-// Gravity Slider Handling
-const gravitySlider = document.getElementById('gravity');
-const gravityValueDisplay = document.getElementById('gravityValue');
-let gravity = parseFloat(gravitySlider.value);
-
-// Update gravity value display and variable on slider input
-gravitySlider.addEventListener('input', (e) => {
-    gravity = parseFloat(e.target.value);
-    gravityValueDisplay.textContent = gravity.toFixed(2);
-});
-
 // ----- Error Logging Mechanism -----
 const capturedErrors = [];
 
@@ -269,47 +252,12 @@ async function triggerSuperDebugger() {
  * @returns {Promise<void>}
  */
 async function copyToClipboard(text) {
-    if (!navigator.clipboard) {
-        // Fallback for browsers that do not support Clipboard API
-        fallbackCopyTextToClipboard(text);
-        return;
-    }
     try {
-        await navigator.clipboard.writeText(text);
+        await copyToClipboard(text); // Imported from clipboard.js
     } catch (err) {
         error(`Failed to copy to clipboard: ${err.message}`);
         notifyUser('Super Debugger: Failed to copy data to clipboard.');
     }
-}
-
-/**
- * Fallback method for copying text to clipboard using a temporary textarea.
- * @param {string} text - The text to copy.
- */
-function fallbackCopyTextToClipboard(text) {
-    const textarea = document.createElement('textarea');
-    textarea.value = text;
-
-    // Avoid scrolling to bottom
-    textarea.style.top = '0';
-    textarea.style.left = '0';
-    textarea.style.position = 'fixed';
-
-    document.body.appendChild(textarea);
-    textarea.focus();
-    textarea.select();
-
-    try {
-        const successful = document.execCommand('copy');
-        if (!successful) {
-            throw new Error('Fallback: Copy command was unsuccessful');
-        }
-    } catch (err) {
-        error(`Fallback: Oops, unable to copy: ${err.message}`);
-        notifyUser('Super Debugger: Failed to copy data to clipboard.');
-    }
-
-    document.body.removeChild(textarea);
 }
 
 /**
@@ -366,116 +314,6 @@ async function capturePixelData() {
     const pixelArray = Array.from(pixelData);
 
     return pixelArray;
-}
-
-/**
- * Copies the given text to the clipboard.
- * @param {string} text - The text to copy.
- * @returns {Promise<void>}
- */
-async function copyToClipboard(text) {
-    if (!navigator.clipboard) {
-        // Fallback for browsers that do not support Clipboard API
-        fallbackCopyTextToClipboard(text);
-        return;
-    }
-    try {
-        await navigator.clipboard.writeText(text);
-    } catch (err) {
-        error(`Failed to copy to clipboard: ${err.message}`);
-        notifyUser('Super Debugger: Failed to copy data to clipboard.');
-    }
-}
-
-/**
- * Fallback method for copying text to clipboard using a temporary textarea.
- * @param {string} text - The text to copy.
- */
-function fallbackCopyTextToClipboard(text) {
-    const textarea = document.createElement('textarea');
-    textarea.value = text;
-
-    // Avoid scrolling to bottom
-    textarea.style.top = '0';
-    textarea.style.left = '0';
-    textarea.style.position = 'fixed';
-
-    document.body.appendChild(textarea);
-    textarea.focus();
-    textarea.select();
-
-    try {
-        const successful = document.execCommand('copy');
-        if (!successful) {
-            throw new Error('Fallback: Copy command was unsuccessful');
-        }
-    } catch (err) {
-        error(`Fallback: Oops, unable to copy: ${err.message}`);
-        notifyUser('Super Debugger: Failed to copy data to clipboard.');
-    }
-
-    document.body.removeChild(textarea);
-}
-
-/**
- * Displays a temporary notification to the user.
- * @param {string} message - The message to display.
- */
-function notifyUser(message) {
-    let notification = document.getElementById('debuggerNotification');
-    if (!notification) {
-        notification = document.createElement('div');
-        notification.id = 'debuggerNotification';
-        notification.style.position = 'fixed';
-        notification.style.bottom = '20px';
-        notification.style.right = '20px';
-        notification.style.background = 'rgba(0, 0, 0, 0.8)';
-        notification.style.color = 'white';
-        notification.style.padding = '10px 20px';
-        notification.style.borderRadius = '5px';
-        notification.style.fontFamily = 'Arial, sans-serif';
-        notification.style.fontSize = '14px';
-        notification.style.zIndex = '3000';
-        notification.style.opacity = '0';
-        notification.style.transition = 'opacity 0.5s';
-        document.body.appendChild(notification);
-    }
-
-    notification.textContent = message;
-    notification.style.opacity = '1';
-
-    // Hide after 3 seconds
-    setTimeout(() => {
-        notification.style.opacity = '0';
-    }, 3000);
-}
-
-/**
- * Triggers the super debugger to capture pixel data and error messages.
- */
-async function triggerSuperDebugger() {
-    // Capture pixel data
-    const pixels = await capturePixelData();
-
-    // Retrieve and clear captured errors
-    const errors = [...capturedErrors];
-    capturedErrors.length = 0; // Clear the array after capturing
-
-    // Combine data into a single object
-    const debugData = {
-        timestamp: new Date().toISOString(),
-        pixelData: pixels,
-        errorMessages: errors
-    };
-
-    // Serialize to JSON
-    const jsonData = JSON.stringify(debugData, null, 2); // Pretty-print with 2-space indentation
-
-    // Copy to clipboard
-    await copyToClipboard(jsonData);
-
-    // Provide user feedback
-    notifyUser('Super Debugger: Pixel data and errors have been copied to the clipboard.');
 }
 
 // ----- Simulation Loop -----
