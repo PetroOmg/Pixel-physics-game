@@ -8,7 +8,7 @@ import { PlayerShip } from './ship/ship.js';
 import { clamp, createTexture } from './utils/utils.js';
 import { info, error } from './utils/logger.js';
 import { copyToClipboard } from './utils/clipboard.js'; // Import from separate module
-import { rleCompress, rleDecompress } from './utils/compression.js';
+import { rleCompress, rleDecompress, quantizeData, dequantizeData } from './utils/compression.js';
 import { encodeBase64, decodeBase64 } from './utils/base64.js';
 
 // ----- WebGL Initialization -----
@@ -227,12 +227,11 @@ async function triggerSuperDebugger() {
     // Capture pixel data
     const pixels = await capturePixelData();
 
-    // Retrieve and clear captured errors
-    const errors = [...capturedErrors];
-    capturedErrors.length = 0; // Clear the array after capturing
+    // Quantize data
+    const quantizedData = quantizeData(pixels);
 
-    // Compress pixel data using RLE
-    const compressedPixelData = rleCompress(pixels);
+    // Compress quantized data using RLE
+    const compressedPixelData = rleCompress(Array.from(quantizedData));
 
     // Convert compressed data to JSON string
     const compressedJson = JSON.stringify(compressedPixelData);
@@ -246,15 +245,17 @@ async function triggerSuperDebugger() {
         decompressionInstructions: "To decompress this data, use the following steps:\n\n" +
             "1. Decode the 'compressedData' from Base64.\n" +
             "2. Parse the JSON string to retrieve the RLE compressed array.\n" +
-            "3. Apply 'rleDecompress' to get the original Float32Array.\n\n" +
+            "3. Apply 'rleDecompress' to get the quantized Uint16Array.\n" +
+            "4. Apply 'dequantizeData' to retrieve the original Float32Array.\n\n" +
             "Example Code:\n\n" +
-            "import { rleDecompress } from './utils/compression.js';\n" +
+            "import { rleDecompress, dequantizeData } from './utils/compression.js';\n" +
             "import { decodeBase64 } from './utils/base64.js';\n\n" +
             "// Assume 'copiedData' is the JSON string from the clipboard\n" +
             "const parsedData = JSON.parse(copiedData);\n" +
             "const compressedJson = decodeBase64(parsedData.compressedData);\n" +
             "const compressedArray = JSON.parse(compressedJson);\n" +
-            "const originalPixels = rleDecompress(compressedArray);\n\n" +
+            "const quantizedArray = rleDecompress(compressedArray);\n" +
+            "const originalPixels = dequantizeData(quantizedArray);\n\n" +
             "console.log(originalPixels);"
     };
 
