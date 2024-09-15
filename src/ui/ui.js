@@ -47,6 +47,7 @@ export function createUIElements() {
     // FPS Counter
     const fpsCounter = document.createElement('div');
     fpsCounter.id = 'fpsCounter';
+    fpsCounter.setAttribute('aria-label', 'Frames Per Second');
     fpsCounter.style.position = 'absolute';
     fpsCounter.style.top = '10px';
     fpsCounter.style.right = '10px';
@@ -63,6 +64,7 @@ export function createUIElements() {
     // TPS Counter
     const tpsCounter = document.createElement('div');
     tpsCounter.id = 'tpsCounter';
+    tpsCounter.setAttribute('aria-label', 'Ticks Per Second');
     tpsCounter.style.position = 'absolute';
     tpsCounter.style.top = '30px';
     tpsCounter.style.right = '10px';
@@ -79,6 +81,7 @@ export function createUIElements() {
     // Year Display
     const yearDisplay = document.createElement('div');
     yearDisplay.id = 'yearDisplay';
+    yearDisplay.setAttribute('aria-label', 'Simulation Year');
     yearDisplay.style.position = 'absolute';
     yearDisplay.style.bottom = '40px';
     yearDisplay.style.right = '10px';
@@ -95,6 +98,7 @@ export function createUIElements() {
     // Average Temperature Display
     const averageTempDisplay = document.createElement('div');
     averageTempDisplay.id = 'averageTempDisplay';
+    averageTempDisplay.setAttribute('aria-label', 'Average Temperature');
     averageTempDisplay.style.position = 'absolute';
     averageTempDisplay.style.bottom = '60px';
     averageTempDisplay.style.right = '10px';
@@ -122,8 +126,8 @@ export function updateUI(fps, tps, year, averageTemperature) {
     const yearDisplay = document.getElementById('yearDisplay');
     const averageTempDisplay = document.getElementById('averageTempDisplay');
 
-    if (fpsCounter) fpsCounter.textContent = `FPS: ${fps}`;
-    if (tpsCounter) tpsCounter.textContent = `TPS: ${tps}`;
+    if (fpsCounter) fpsCounter.textContent = `FPS: ${Math.round(fps)}`;
+    if (tpsCounter) tpsCounter.textContent = `TPS: ${Math.round(tps)}`;
     if (yearDisplay) yearDisplay.textContent = `Year: ${year}`;
     if (averageTempDisplay) averageTempDisplay.textContent = `Avg Temp: ${averageTemperature.toFixed(2)}`;
 }

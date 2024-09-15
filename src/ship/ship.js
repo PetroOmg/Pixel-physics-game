@@ -33,21 +33,21 @@ export class PlayerShip {
         const reverseThrustPower = 0.033;
         const turnSpeed = 0.05;
 
-        if (keys['w']) {
+        if (keys.includes('w')) {
             // Apply forward thrust
             this.velocity.x += Math.cos(this.angle) * thrustPower;
             this.velocity.y += Math.sin(this.angle) * thrustPower;
         }
-        if (keys['s']) {
+        if (keys.includes('s')) {
             // Apply reverse thrust
             this.velocity.x -= Math.cos(this.angle) * reverseThrustPower;
             this.velocity.y -= Math.sin(this.angle) * reverseThrustPower;
         }
-        if (keys['a']) {
+        if (keys.includes('a')) {
             // Turn left
             this.angle -= turnSpeed;
         }
-        if (keys['d']) {
+        if (keys.includes('d')) {
             // Turn right
             this.angle += turnSpeed;
         }

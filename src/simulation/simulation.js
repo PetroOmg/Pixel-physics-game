@@ -15,10 +15,10 @@ export function initializeSimulation(gl, currentState, width, height, seed) {
     const initialData = new Float32Array(width * height * 4);
 
     for (let i = 0; i < width * height; i++) {
-        initialData[i * 4 + 0] = clamp(rand(), 0.0, 1.0);       // Density (R)
-        initialData[i * 4 + 1] = clamp(rand(), 0.0, 1.0);       // Temperature (G)
-        initialData[i * 4 + 2] = clamp(rand() * 0.5, 0.0, 1.0); // Magic (B)
-        initialData[i * 4 + 3] = clamp(0.0, 0.0, 1.0);         // Organic (A)
+        initialData[i * 4 + 0] = clamp(rand(), 0.0, 1.0);        // Density (R)
+        initialData[i * 4 + 1] = clamp(rand(), 0.0, 1.0);        // Temperature (G)
+        initialData[i * 4 + 2] = clamp(rand() * 0.5, 0.0, 1.0);  // Magic (B)
+        initialData[i * 4 + 3] = clamp(0.0, 0.0, 1.0);          // Organic (A)
     }
 
     gl.bindTexture(gl.TEXTURE_2D, currentState);
@@ -75,8 +75,8 @@ export function computeAverageTemperature(gl, readFramebuffer, width, height) {
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
 
     let sumTemperature = 0;
-    for (let i = 0; i < width * height; i++) {
-        sumTemperature += clamp(pixelData[i * 4 + 1], 0.0, 1.0); // Temperature is G channel
+    for (let i = 1; i < pixelData.length; i += 4) { // Iterate over G channel
+        sumTemperature += clamp(pixelData[i], 0.0, 1.0); // Temperature is G channel
     }
 
     return sumTemperature / (width * height);

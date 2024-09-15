@@ -1,2 +1,14 @@
+# .gitattributes
+
 # Auto detect text files and perform LF normalization
 * text=auto
+
+# Explicitly declare binary files
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.svg binary
+*.glsl binary
+*.frag binary
+*.vert binary

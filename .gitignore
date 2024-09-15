@@ -1,6 +1,31 @@
 # .gitignore
 
+# Node modules
 node_modules/
+
+# Parcel build output
 dist/
 .cache/
 .parcel-cache/
+
+# Logs
+logs
+*.log
+npm-debug.log*
+
+# Environment variables
+.env
+
+# OS-specific files
+.DS_Store
+Thumbs.db
+
+# Editor directories and files
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# Temporary files
+tmp/
+temp/

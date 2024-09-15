@@ -41,25 +41,27 @@ export function initializeUpdateProgram(gl) {
     const fragmentShader = compileShader(gl, gl.FRAGMENT_SHADER, fragmentShaderSrc);
     const program = linkProgram(gl, vertexShader, fragmentShader);
 
-    // Setup a full-screen quad
-    const vao = gl.createVertexArray();
-    gl.bindVertexArray(vao);
+    // Setup a full-screen quad once
+    if (!updateVAO) {
+        updateVAO = gl.createVertexArray();
+        gl.bindVertexArray(updateVAO);
 
-    const quadBuffer = gl.createBuffer();
-    gl.bindBuffer(gl.ARRAY_BUFFER, quadBuffer);
-    const quadVertices = new Float32Array([
-        -1.0, -1.0,
-         1.0, -1.0,
-        -1.0,  1.0,
-         1.0,  1.0,
-    ]);
-    gl.bufferData(gl.ARRAY_BUFFER, quadVertices, gl.STATIC_DRAW);
+        const quadBuffer = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, quadBuffer);
+        const quadVertices = new Float32Array([
+            -1.0, -1.0,
+             1.0, -1.0,
+            -1.0,  1.0,
+             1.0,  1.0,
+        ]);
+        gl.bufferData(gl.ARRAY_BUFFER, quadVertices, gl.STATIC_DRAW);
 
-    gl.enableVertexAttribArray(0); // a_position
-    gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
+        gl.enableVertexAttribArray(0); // a_position
+        gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
 
-    gl.bindVertexArray(null);
-    gl.bindBuffer(gl.ARRAY_BUFFER, null);
+        gl.bindVertexArray(null);
+        gl.bindBuffer(gl.ARRAY_BUFFER, null);
+    }
 
     return program;
 }
@@ -110,25 +112,27 @@ export function initializeRenderProgram(gl) {
     const fragmentShader = compileShader(gl, gl.FRAGMENT_SHADER, fragmentShaderSrc);
     const program = linkProgram(gl, vertexShader, fragmentShader);
 
-    // Setup a full-screen quad
-    const vao = gl.createVertexArray();
-    gl.bindVertexArray(vao);
+    // Setup a full-screen quad once
+    if (!renderVAO) {
+        renderVAO = gl.createVertexArray();
+        gl.bindVertexArray(renderVAO);
 
-    const quadBuffer = gl.createBuffer();
-    gl.bindBuffer(gl.ARRAY_BUFFER, quadBuffer);
-    const quadVertices = new Float32Array([
-        -1.0, -1.0,
-         1.0, -1.0,
-        -1.0,  1.0,
-         1.0,  1.0,
-    ]);
-    gl.bufferData(gl.ARRAY_BUFFER, quadVertices, gl.STATIC_DRAW);
+        const quadBuffer = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, quadBuffer);
+        const quadVertices = new Float32Array([
+            -1.0, -1.0,
+             1.0, -1.0,
+            -1.0,  1.0,
+             1.0,  1.0,
+        ]);
+        gl.bufferData(gl.ARRAY_BUFFER, quadVertices, gl.STATIC_DRAW);
 
-    gl.enableVertexAttribArray(0); // a_position
-    gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
+        gl.enableVertexAttribArray(0); // a_position
+        gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
 
-    gl.bindVertexArray(null);
-    gl.bindBuffer(gl.ARRAY_BUFFER, null);
+        gl.bindVertexArray(null);
+        gl.bindBuffer(gl.ARRAY_BUFFER, null);
+    }
 
     return program;
 }
@@ -141,7 +145,7 @@ export function initializeRenderProgram(gl) {
  */
 export function renderScene(gl, renderProgram, currentState) {
     gl.useProgram(renderProgram);
-    gl.bindVertexArray(gl.createVertexArray()); // Assuming VAO is already bound in initializeRendering
+    gl.bindVertexArray(renderVAO); // Use the preinitialized VAO
 
     // Bind the current state texture to texture unit 0
     const currentStateLoc = gl.getUniformLocation(renderProgram, 'u_currentState');
@@ -164,6 +168,7 @@ export function renderScene(gl, renderProgram, currentState) {
  * @param {number} type - The type of shader (VERTEX_SHADER or FRAGMENT_SHADER).
  * @param {string} source - The shader source code.
  * @returns {WebGLShader} - The compiled shader.
+ * @throws {Error} - If shader compilation fails.
  */
 function compileShader(gl, type, source) {
     const shader = gl.createShader(type);
@@ -171,9 +176,9 @@ function compileShader(gl, type, source) {
     gl.compileShader(shader);
     const success = gl.getShaderParameter(shader, gl.COMPILE_STATUS);
     if (!success) {
-        console.error('Shader compilation failed:', gl.getShaderInfoLog(shader));
+        const errorLog = gl.getShaderInfoLog(shader);
         gl.deleteShader(shader);
-        return null;
+        throw new Error(`Shader compilation failed: ${errorLog}`);
     }
     return shader;
 }
@@ -184,6 +189,7 @@ function compileShader(gl, type, source) {
  * @param {WebGLShader} vertexShader - The compiled vertex shader.
  * @param {WebGLShader} fragmentShader - The compiled fragment shader.
  * @returns {WebGLProgram} - The linked shader program.
+ * @throws {Error} - If program linking fails.
  */
 function linkProgram(gl, vertexShader, fragmentShader) {
     const program = gl.createProgram();
@@ -192,9 +198,13 @@ function linkProgram(gl, vertexShader, fragmentShader) {
     gl.linkProgram(program);
     const success = gl.getProgramParameter(program, gl.LINK_STATUS);
     if (!success) {
-        console.error('Program linking failed:', gl.getProgramInfoLog(program));
+        const errorLog = gl.getProgramInfoLog(program);
         gl.deleteProgram(program);
-        return null;
+        throw new Error(`Program linking failed: ${errorLog}`);
     }
     return program;
 }
+
+// Initialize VAOs as null
+let updateVAO = null;
+let renderVAO = null;
