@@ -120,6 +120,19 @@ inputEventTarget.addEventListener('d-release', () => {
     pressedKeys = pressedKeys.filter(key => key !== 'd');
 });
 
+// ----- Keyboard Shortcut for Super Debugger -----
+
+document.addEventListener('keydown', async (e) => {
+    if (e.key === 'y' || e.key === 'Y') {
+        e.preventDefault(); // Prevent any default behavior
+        try {
+            await capturePixelData();
+        } catch (err) {
+            error(`Debugger error: ${err.message}`);
+        }
+    }
+});
+
 // ----- Initialize UI Elements -----
 
 createUIElements();
@@ -380,4 +393,151 @@ function computeAverageTemperature(gl, readFramebuffer, width, height) {
         type: 'computeAverageTemperature',
         payload: { pixelData, width, height }
     });
+}
+
+/**
+ * Captures the entire pixel data from the current simulation state.
+ */
+async function capturePixelData() {
+    // Bind the readFramebuffer to read from currentState
+    gl.bindFramebuffer(gl.FRAMEBUFFER, readFramebuffer);
+
+    // Create a Float32Array to store pixel data
+    const pixelData = new Float32Array(WIDTH * HEIGHT * 4); // RGBA for each pixel
+
+    // Read pixels from the framebuffer
+    gl.readPixels(0, 0, WIDTH, HEIGHT, gl.RGBA, gl.FLOAT, pixelData);
+
+    // Unbind the framebuffer
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+
+    // Convert Float32Array to Uint8ClampedArray for image processing
+    const uint8Data = floatToUint8(pixelData);
+
+    // Create an ImageData object
+    const imageData = new ImageData(new Uint8ClampedArray(uint8Data), WIDTH, HEIGHT);
+
+    // Render the ImageData to an off-screen canvas
+    const offscreenCanvas = document.createElement('canvas');
+    offscreenCanvas.width = WIDTH;
+    offscreenCanvas.height = HEIGHT;
+    const ctx = offscreenCanvas.getContext('2d');
+    ctx.putImageData(imageData, 0, 0);
+
+    // Convert the canvas to a PNG data URL
+    const dataURL = offscreenCanvas.toDataURL('image/png');
+
+    // Create a popup to display the captured image
+    displayCapturedImage(dataURL);
+
+    // Optionally, trigger a download of the image
+    downloadCapturedImage(dataURL, `pixelData_${Date.now()}.png`);
+}
+
+/**
+ * Converts a Float32Array [0,1] to Uint8ClampedArray [0,255].
+ * @param {Float32Array} floatData - The float pixel data.
+ * @returns {Uint8ClampedArray} - The clamped byte pixel data.
+ */
+function floatToUint8(floatData) {
+    const uint8Data = new Uint8ClampedArray(floatData.length);
+    for (let i = 0; i < floatData.length; i++) {
+        // Clamp and convert each float value to 0-255
+        uint8Data[i] = clamp(Math.round(floatData[i] * 255), 0, 255);
+    }
+    return uint8Data;
+}
+
+/**
+ * Displays the captured pixel data image in a popup.
+ * @param {string} dataURL - The data URL of the captured image.
+ */
+function displayCapturedImage(dataURL) {
+    // Create or select a popup container
+    let debuggerPopup = document.getElementById('debuggerPopup');
+    if (!debuggerPopup) {
+        debuggerPopup = document.createElement('div');
+        debuggerPopup.id = 'debuggerPopup';
+        debuggerPopup.style.position = 'absolute';
+        debuggerPopup.style.top = '50px';
+        debuggerPopup.style.left = '50px';
+        debuggerPopup.style.width = '500px';
+        debuggerPopup.style.height = '500px';
+        debuggerPopup.style.background = 'rgba(0, 0, 0, 0.9)';
+        debuggerPopup.style.border = '2px solid #fff';
+        debuggerPopup.style.borderRadius = '10px';
+        debuggerPopup.style.padding = '10px';
+        debuggerPopup.style.zIndex = '2000';
+        debuggerPopup.style.overflow = 'auto';
+        debuggerPopup.style.display = 'flex';
+        debuggerPopup.style.justifyContent = 'center';
+        debuggerPopup.style.alignItems = 'center';
+        document.body.appendChild(debuggerPopup);
+
+        // Add a close button
+        const closeButton = document.createElement('button');
+        closeButton.textContent = 'Close';
+        closeButton.style.position = 'absolute';
+        closeButton.style.top = '10px';
+        closeButton.style.right = '10px';
+        closeButton.style.padding = '5px 10px';
+        closeButton.style.background = '#ff5c5c';
+        closeButton.style.border = 'none';
+        closeButton.style.borderRadius = '5px';
+        closeButton.style.cursor = 'pointer';
+        closeButton.addEventListener('click', () => {
+            debuggerPopup.style.display = 'none';
+        });
+        debuggerPopup.appendChild(closeButton);
+    }
+
+    // Create an image element to display the data URL
+    const img = document.createElement('img');
+    img.src = dataURL;
+    img.style.maxWidth = '100%';
+    img.style.maxHeight = '100%';
+    img.alt = 'Captured Pixel Data';
+
+    // Clear any previous content and append the new image
+    debuggerPopup.innerHTML = ''; // Remove existing content
+    debuggerPopup.appendChild(img);
+
+    // Add the close button again
+    const closeButton = document.createElement('button');
+    closeButton.textContent = 'Close';
+    closeButton.style.position = 'absolute';
+    closeButton.style.top = '10px';
+    closeButton.style.right = '10px';
+    closeButton.style.padding = '5px 10px';
+    closeButton.style.background = '#ff5c5c';
+    closeButton.style.border = 'none';
+    closeButton.style.borderRadius = '5px';
+    closeButton.style.cursor = 'pointer';
+    closeButton.addEventListener('click', () => {
+        debuggerPopup.style.display = 'none';
+    });
+    debuggerPopup.appendChild(closeButton);
+
+    // Make the popup visible
+    debuggerPopup.style.display = 'flex';
+}
+
+/**
+ * Triggers a download of the captured image.
+ * @param {string} dataURL - The data URL of the captured image.
+ * @param {string} filename - The desired filename for the downloaded image.
+ */
+function downloadCapturedImage(dataURL, filename) {
+    const link = document.createElement('a');
+    link.href = dataURL;
+    link.download = filename;
+
+    // Append the link to the body
+    document.body.appendChild(link);
+
+    // Programmatically click the link to trigger the download
+    link.click();
+
+    // Remove the link from the DOM
+    document.body.removeChild(link);
 }
